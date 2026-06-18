@@ -5,6 +5,7 @@ const defaultState = () => ({
   experience: null,
   certs: [],
   skillChecks: Object.fromEntries(SKILLS.map((s) => [s.id, []])),
+  skillAffinity: Object.fromEntries(SKILLS.map((s) => [s.id, "neutral"])),
   scenarioAnswers: Object.fromEntries(SCENARIOS.map((_, i) => [i, []])),
 });
 
@@ -161,12 +162,12 @@ function renderSkills() {
 
   for (const skill of SKILLS) {
     if (!state.skillChecks[skill.id]) state.skillChecks[skill.id] = [];
+    if (!state.skillAffinity[skill.id]) state.skillAffinity[skill.id] = "neutral";
     const checked = state.skillChecks[skill.id];
     const levelLabel = el("p", { class: "skill-value" });
 
     function updateLevelLabel() {
-      const levels = checked.map((i) => skill.tasks[i].level);
-      const level = levels.length ? Math.max(...levels) : 1;
+      const level = skillLevelFor(skill, checked);
       levelLabel.textContent = `Inferred level ${level}/5 — ${skill.anchors[level - 1]}`;
     }
 
@@ -196,11 +197,40 @@ function renderSkills() {
     });
     updateLevelLabel();
 
+    const AFFINITY_OPTIONS = [
+      { id: "dislike", text: "Not for me" },
+      { id: "neutral", text: "Neutral" },
+      { id: "like", text: "More of this" },
+    ];
+    const affinityRow = el("div", { class: "affinity-row" });
+    const affinityBtns = [];
+    AFFINITY_OPTIONS.forEach((opt) => {
+      const btn = el(
+        "button",
+        {
+          type: "button",
+          class: "affinity-btn" + (state.skillAffinity[skill.id] === opt.id ? " active" : ""),
+          onclick: () => {
+            state.skillAffinity[skill.id] = opt.id;
+            saveState();
+            affinityBtns.forEach((b) => b.el.classList.toggle("active", b.id === opt.id));
+          },
+        },
+        opt.text
+      );
+      affinityBtns.push({ id: opt.id, el: btn });
+      affinityRow.appendChild(btn);
+    });
+
     list.appendChild(
       el("div", { class: "skill-row" }, [
         el("div", { class: "skill-label" }, [el("strong", {}, skill.label), el("span", { class: "muted small" }, skill.desc)]),
         taskList,
         levelLabel,
+        el("div", { class: "affinity-block" }, [
+          el("span", { class: "muted small" }, "Independent of what you've done — do you want more of this kind of work?"),
+          affinityRow,
+        ]),
       ])
     );
   }
@@ -265,25 +295,50 @@ function renderInterests() {
 }
 
 // --------------------------------------------------------- scoring core
+// A single checked task can never alone carry a skill to its level — claiming
+// a high level also requires having checked enough of the list to back it up
+// (checking only the hardest-sounding box, alone, caps out at level 2).
+function skillLevelFor(skill, checkedIdx) {
+  if (!checkedIdx.length) return 1;
+  const maxClaimed = Math.max(...checkedIdx.map((i) => skill.tasks[i].level));
+  // A single checked task can still place you anywhere from 1-3 depending on
+  // which one (so an easy vs. a moderately-advanced box still reads differently),
+  // but never alone reaches 4-5 — that requires breadth across multiple tasks.
+  return Math.min(maxClaimed, 2 + checkedIdx.length);
+}
+
 function skillLevels() {
   const out = {};
   for (const skill of SKILLS) {
     const checked = state.skillChecks[skill.id] || [];
-    const levels = checked.map((i) => skill.tasks[i].level);
-    out[skill.id] = levels.length ? Math.max(...levels) : 1;
+    out[skill.id] = skillLevelFor(skill, checked);
   }
   return out;
 }
 
-function maxHeldCertLevel() {
-  return state.certs.reduce((m, id) => Math.max(m, cert(id).level), 0);
+// Cert suppression is scoped to the certs that actually appear on THIS track's
+// ladder — holding a senior cert in one domain (e.g. CISM) shouldn't silently
+// wipe out cert recommendations in an unrelated one (e.g. Cloud Security).
+function maxHeldCertLevelForTrack(track) {
+  const trackCertIds = new Set();
+  TRACKS_DATA[track].rungs.forEach((r) => r.certs.forEach((id) => trackCertIds.add(id)));
+  return state.certs.reduce((m, id) => (trackCertIds.has(id) ? Math.max(m, cert(id).level) : m), 0);
 }
 
 // Filter a list of cert ids down to what's worth recommending: drop anything
-// already held or at/below the highest level the user already holds.
-function recommendCerts(ids) {
-  const held = maxHeldCertLevel();
+// already held or at/below the highest level the user already holds *on this track*.
+function recommendCerts(ids, track) {
+  const held = maxHeldCertLevelForTrack(track);
   return ids.filter((id) => !state.certs.includes(id) && cert(id).level > held);
+}
+
+// The skill the track's ladder leans on most. Used so someone who has maxed
+// their PRIMARY skill (e.g. SIEM for defense) isn't held back from being
+// recognized as already-senior just because a low-weighted, untouched skill
+// (e.g. scripting) drags the blended average down.
+function primarySkillId(track) {
+  const w = TRACKS_DATA[track].skillWeights;
+  return Object.entries(w).sort((a, b) => b[1] - a[1])[0][0];
 }
 
 function trackSkillScore(track) {
@@ -294,6 +349,24 @@ function trackSkillScore(track) {
   return sum ? ids.reduce((s, id) => s + w[id] * ((lv[id] - 1) / 4), 0) / sum : 0;
 }
 
+// Enjoyment/competence are different things from "have done it" (e.g. you can
+// have run budgets at a senior level and still hate doing it). This pulls fit
+// down when a track leans on skills the user explicitly said they don't want
+// more of, and up slightly when they said they want more of it.
+function trackAffinityAdjustment(track) {
+  const w = TRACKS_DATA[track].skillWeights;
+  const ids = Object.keys(w);
+  const sum = ids.reduce((s, id) => s + w[id], 0);
+  if (!sum) return 0;
+  const raw = ids.reduce((s, id) => {
+    const aff = state.skillAffinity[id];
+    if (aff === "dislike") return s - w[id];
+    if (aff === "like") return s + w[id] * 0.3;
+    return s;
+  }, 0);
+  return raw / sum;
+}
+
 function computeTracks() {
   const points = Object.fromEntries(TRACKS.map((t) => [t, 0]));
   SCENARIOS.forEach((sc, si) => (state.scenarioAnswers[si] || []).forEach((oi) => (points[sc.options[oi].track] += 1)));
@@ -301,19 +374,21 @@ function computeTracks() {
 
   const exp = EXPERIENCE_LEVELS.find((e) => e.id === state.experience) || { weight: 0, baseRung: 0 };
   const inSecurity = exp.weight >= 2; // already holds a security/adjacent role
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
+  const lv = skillLevels();
 
   return TRACKS.map((track) => {
     const interest = points[track] / totalPicks; // share of everything they picked
     const skill = trackSkillScore(track);
-    const fit = 0.55 * interest + 0.45 * skill;
+    const affinityAdj = trackAffinityAdjustment(track);
+    const fit = clamp(0.55 * interest + 0.45 * skill + 0.25 * affinityAdj, 0, 1);
     const rungs = TRACKS_DATA[track].rungs;
-    const clamp = (n, lo, hi) => Math.max(lo, Math.min(n, hi));
 
     // currentRungIdx: the role they could credibly claim TODAY (-1 = entering,
     // no security role yet). startIdx: where their Year-1 move lands.
     let currentRungIdx, startIdx;
     if (inSecurity) {
-      const bump = skill >= 0.85 ? 1 : 0;
+      const bump = skill >= 0.85 || lv[primarySkillId(track)] >= 5 ? 1 : 0;
       currentRungIdx = clamp(exp.baseRung + bump, 0, rungs.length - 2); // leave room above
       startIdx = currentRungIdx + 1;
     } else {
@@ -322,7 +397,7 @@ function computeTracks() {
       currentRungIdx = -1;
       startIdx = clamp(skill >= 0.82 ? 1 : 0, 0, rungs.length - 1);
     }
-    return { track, interest, skill, fit, currentRungIdx, startIdx, points: points[track] };
+    return { track, interest, skill, affinityAdj, fit, currentRungIdx, startIdx, points: points[track] };
   }).sort((a, b) => b.fit - a.fit);
 }
 
@@ -367,13 +442,30 @@ function renderResults() {
     ])
   );
 
+  // Certs held that aren't part of THIS track's ladder at all — without this
+  // note it looks like they were silently ignored rather than just being for
+  // a different path (e.g. a GRC cert doesn't reduce what's needed for Cloud).
+  const trackCertPool = new Set();
+  rungs.forEach((r) => r.certs.forEach((id) => trackCertPool.add(id)));
+  const heldElsewhere = state.certs.filter((id) => !trackCertPool.has(id));
+  if (heldElsewhere.length) {
+    card.appendChild(
+      el(
+        "p",
+        { class: "muted small" },
+        `Certs you hold that aren't part of this particular ladder: ${heldElsewhere.map(certName).join(", ")} — not wasted, just not what this specific path leans on.`
+      )
+    );
+  }
+
   // Fork detection: interests genuinely split toward a different track. Based on
   // what they're DRAWN to (interest), not blended fit — that's what "I'm torn"
   // actually means. The primary ladder still follows overall fit.
   const second = ranked
     .filter((r) => r.track !== top.track)
     .sort((a, b) => b.interest - a.interest)[0];
-  if (second && top.interest > 0 && second.interest >= 0.6 * top.interest && second.interest >= 0.25) {
+  const isFork = second && top.interest > 0 && second.interest >= 0.6 * top.interest && second.interest >= 0.25;
+  if (isFork) {
     const td2 = TRACKS_DATA[second.track];
     card.appendChild(
       el("div", { class: "fork" }, [
@@ -386,14 +478,28 @@ function renderResults() {
         el("p", { class: "small muted" }, "Not sure? Pick the one whose day-in-the-life you'd rather have on a bad week. You can test-drive a track by volunteering for that kind of work in your current role before committing."),
       ])
     );
+  } else {
+    // Not a behavioral fork, but a skills/certs-driven secondary path can still
+    // be worth knowing about even when the interest quiz didn't surface it.
+    const runnerUp = ranked[1];
+    if (runnerUp && runnerUp.fit >= 0.25) {
+      card.appendChild(
+        el(
+          "p",
+          { class: "muted small" },
+          `Worth knowing: your next-best fit is ${TRACKS_DATA[runnerUp.track].label} (${fitWord(runnerUp.fit)}) — see "How your other directions ranked" below.`
+        )
+      );
+    }
   }
 
   // The ladder timeline.
   card.appendChild(el("h3", {}, `Roadmap: ${td.label}`));
   const timeline = el("div", { class: "timeline" });
+  const skippedRungs = rungs.slice(midIdx + 1, seniorIdx).map((r) => r.title);
 
   function stage(when, rung, opts = {}) {
-    const recs = recommendCerts(rung.certs);
+    const recs = recommendCerts(rung.certs, top.track);
     const held = rung.certs.filter((c) => state.certs.includes(c));
     const body = [
       el("h4", {}, rung.title),
@@ -405,9 +511,10 @@ function renderResults() {
       body.push(
         recs.length
           ? el("p", { class: "small" }, [el("strong", {}, "Certs to target: "), el("span", { html: recs.map((c) => `${certName(c)} <span class="muted">(${cert(c).blurb})</span>`).join("; ") })])
-          : el("p", { class: "small muted" }, "No new certs needed here — you're already covered at this level.")
+          : el("p", { class: "small muted" }, "No cert beyond what you hold is needed for this rung specifically — proof of work matters more here.")
       );
     }
+    if (opts.viaNote) body.push(el("p", { class: "small muted" }, `Also along the way: ${opts.viaNote}`));
     return el("div", { class: "timeline-row" + (opts.now ? " timeline-now" : "") }, [
       el("div", { class: "timeline-when" }, when),
       el("div", { class: "timeline-body" }, body),
@@ -417,7 +524,7 @@ function renderResults() {
   if (current) timeline.appendChild(stage("Now", current, { now: true }));
   timeline.appendChild(stage("Year 1", rungs[nextIdx], { readiness: ready }));
   if (midIdx > nextIdx) timeline.appendChild(stage("Years 2–4", rungs[midIdx]));
-  if (seniorIdx > midIdx) timeline.appendChild(stage("Years 5–10", rungs[seniorIdx]));
+  if (seniorIdx > midIdx) timeline.appendChild(stage("Years 5–10", rungs[seniorIdx], { viaNote: skippedRungs.length ? skippedRungs.join(" → ") : null }));
   card.appendChild(timeline);
 
   // Generic proof-of-work nudge (applies to every track).
@@ -440,13 +547,37 @@ function renderResults() {
     );
   }
 
+  // Enjoyment mismatch: skilled/eligible on paper but said they don't want more of it.
+  const dislikedRelevant = Object.keys(td.skillWeights).filter(
+    (id) => state.skillAffinity[id] === "dislike" && td.skillWeights[id] >= 0.4
+  );
+  if (dislikedRelevant.length) {
+    card.appendChild(
+      el("div", { class: "callout" }, [
+        el("strong", {}, "Worth a gut check: "),
+        el(
+          "span",
+          {},
+          `This track leans heavily on ${dislikedRelevant.map((id) => SKILLS.find((s) => s.id === id).label).join(", ")} — you said you don't want more of that kind of work. Skill and interest scores don't capture day-to-day enjoyment, so weigh that before committing.`
+        ),
+      ])
+    );
+  }
+
   // Secondary: how the other tracks ranked (in words, not "eligible now" spam).
   const details = el("details", { class: "rank-details" }, [el("summary", {}, "How your other directions ranked")]);
   const rankList = el("div", { class: "rank-list" });
   ranked.forEach((r) => {
+    const rd = TRACKS_DATA[r.track];
+    const dislikedHere = Object.keys(rd.skillWeights).filter((id) => state.skillAffinity[id] === "dislike" && rd.skillWeights[id] >= 0.4);
     rankList.appendChild(
       el("div", { class: "rank-row" }, [
-        el("span", { class: "rank-name" }, TRACKS_DATA[r.track].label),
+        el("span", { class: "rank-name" }, [
+          rd.label,
+          dislikedHere.length
+            ? el("span", { class: "muted small" }, ` — lower partly because you said no to ${dislikedHere.map((id) => SKILLS.find((s) => s.id === id).label).join(", ")}`)
+            : null,
+        ]),
         el("span", { class: "rank-word" }, fitWord(r.fit)),
       ])
     );
@@ -474,7 +605,7 @@ function copyResults(ranked) {
   const current = top.currentRungIdx >= 0 ? rungs[top.currentRungIdx] : null;
 
   const line = (when, rung) => {
-    const recs = recommendCerts(rung.certs).map(certName);
+    const recs = recommendCerts(rung.certs, top.track).map(certName);
     return `${when}: ${rung.title}${recs.length ? ` — certs: ${recs.join(", ")}` : ""}`;
   };
 

@@ -129,6 +129,41 @@ body {
   margin: 6px 0 0;
 }
 
+.affinity-block {
+  margin-top: 10px;
+}
+
+.affinity-block .muted {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.affinity-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.affinity-btn {
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.affinity-btn:hover {
+  border-color: var(--accent);
+}
+
+.affinity-btn.active {
+  background: rgba(79, 140, 255, 0.15);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
 .option-list {
   display: flex;
   flex-direction: column;
