@@ -129,13 +129,37 @@ body {
   margin: 6px 0 0;
 }
 
-.affinity-block {
-  margin-top: 10px;
+.task-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.affinity-block .muted {
-  display: block;
-  margin-bottom: 6px;
+.task-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 2px 0 10px 30px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.task-meta.hidden {
+  display: none;
+}
+
+.task-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.task-meta-row .muted {
+  flex: 0 0 auto;
+  min-width: 120px;
 }
 
 .affinity-row {
@@ -411,4 +435,5 @@ body {
   .cert-checklist { grid-template-columns: 1fr; }
   .fork-grid { grid-template-columns: 1fr; }
   .timeline-row { grid-template-columns: 1fr; gap: 4px; }
+  .task-meta { margin-left: 0; }
 }

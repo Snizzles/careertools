@@ -5,9 +5,14 @@ const defaultState = () => ({
   experience: null,
   certs: [],
   skillChecks: Object.fromEntries(SKILLS.map((s) => [s.id, []])),
-  skillAffinity: Object.fromEntries(SKILLS.map((s) => [s.id, "neutral"])),
+  // Per-task, not per-skill: taskMeta[skillId][taskIndex] = { competency, enjoyment }.
+  // Only populated for checked tasks. "Having done it" (skillChecks) is separate
+  // from "how good I am at it" (competency) and "do I want more of it" (enjoyment).
+  taskMeta: Object.fromEntries(SKILLS.map((s) => [s.id, {}])),
   scenarioAnswers: Object.fromEntries(SCENARIOS.map((_, i) => [i, []])),
 });
+
+const defaultTaskMeta = () => ({ competency: "comfortable", enjoyment: "neutral" });
 
 let state = loadState();
 
@@ -152,85 +157,129 @@ function renderBackground() {
   return card;
 }
 
+const COMPETENCY_OPTIONS = [
+  { id: "learning", text: "Still building confidence" },
+  { id: "comfortable", text: "Comfortable" },
+  { id: "strong", text: "One of my strengths" },
+];
+const ENJOYMENT_OPTIONS = [
+  { id: "dislike", text: "Not for me" },
+  { id: "neutral", text: "Neutral" },
+  { id: "like", text: "Want more of this" },
+];
+
+function metaPillRow(options, current, onPick) {
+  const row = el("div", { class: "affinity-row" });
+  const btns = [];
+  options.forEach((opt) => {
+    const btn = el(
+      "button",
+      {
+        type: "button",
+        class: "affinity-btn" + (current === opt.id ? " active" : ""),
+        onclick: () => {
+          onPick(opt.id);
+          btns.forEach((b) => b.el.classList.toggle("active", b.id === opt.id));
+        },
+      },
+      opt.text
+    );
+    btns.push({ id: opt.id, el: btn });
+    row.appendChild(btn);
+  });
+  return row;
+}
+
 // --------------------------------------------------------------- skills
 function renderSkills() {
   const card = el("section", { class: "card" }, [
     el("h2", {}, "Step 2: What have you actually done?"),
-    el("p", { class: "muted" }, "Check off anything you've genuinely done in each area — including the non-technical leadership one. Your level is inferred from that."),
+    el("p", { class: "muted" }, "Check off anything you've genuinely done in each area — including the non-technical leadership one. For each box you check, rate how it actually went: your level is inferred from that, not just from which box you checked."),
   ]);
   const list = el("div", { class: "skill-list" });
 
   for (const skill of SKILLS) {
     if (!state.skillChecks[skill.id]) state.skillChecks[skill.id] = [];
-    if (!state.skillAffinity[skill.id]) state.skillAffinity[skill.id] = "neutral";
+    if (!state.taskMeta[skill.id]) state.taskMeta[skill.id] = {};
     const checked = state.skillChecks[skill.id];
+    const taskMeta = state.taskMeta[skill.id];
     const levelLabel = el("p", { class: "skill-value" });
 
     function updateLevelLabel() {
-      const level = skillLevelFor(skill, checked);
+      const level = skillLevelFor(skill, checked, taskMeta);
       levelLabel.textContent = `Inferred level ${level}/5 — ${skill.anchors[level - 1]}`;
     }
 
     const taskList = el("div", { class: "task-list" });
     skill.tasks.forEach((task, ti) => {
       const id = `${skill.id}-t${ti}`;
-      taskList.appendChild(
-        el("label", { class: "option", for: id }, [
-          el("input", {
-            type: "checkbox",
-            id,
-            ...(checked.includes(ti) ? { checked: "checked" } : {}),
-            onchange: (e) => {
-              if (e.target.checked) {
-                if (!checked.includes(ti)) checked.push(ti);
-              } else {
-                const idx = checked.indexOf(ti);
-                if (idx !== -1) checked.splice(idx, 1);
-              }
+      if (checked.includes(ti) && !taskMeta[ti]) taskMeta[ti] = defaultTaskMeta();
+
+      const metaBlock = el("div", { class: "task-meta" });
+      function buildMetaBlock() {
+        metaBlock.innerHTML = "";
+        if (!checked.includes(ti)) {
+          metaBlock.classList.add("hidden");
+          return;
+        }
+        metaBlock.classList.remove("hidden");
+        const meta = taskMeta[ti] || (taskMeta[ti] = defaultTaskMeta());
+        metaBlock.appendChild(
+          el("div", { class: "task-meta-row" }, [
+            el("span", { class: "muted small" }, "How'd it go?"),
+            metaPillRow(COMPETENCY_OPTIONS, meta.competency, (val) => {
+              meta.competency = val;
               saveState();
               updateLevelLabel();
-            },
-          }),
-          el("span", {}, task.text),
+            }),
+          ])
+        );
+        metaBlock.appendChild(
+          el("div", { class: "task-meta-row" }, [
+            el("span", { class: "muted small" }, "Want more of this?"),
+            metaPillRow(ENJOYMENT_OPTIONS, meta.enjoyment, (val) => {
+              meta.enjoyment = val;
+              saveState();
+            }),
+          ])
+        );
+      }
+      buildMetaBlock();
+
+      taskList.appendChild(
+        el("div", { class: "task-row" }, [
+          el("label", { class: "option", for: id }, [
+            el("input", {
+              type: "checkbox",
+              id,
+              ...(checked.includes(ti) ? { checked: "checked" } : {}),
+              onchange: (e) => {
+                if (e.target.checked) {
+                  if (!checked.includes(ti)) checked.push(ti);
+                  if (!taskMeta[ti]) taskMeta[ti] = defaultTaskMeta();
+                } else {
+                  const idx = checked.indexOf(ti);
+                  if (idx !== -1) checked.splice(idx, 1);
+                  delete taskMeta[ti];
+                }
+                saveState();
+                updateLevelLabel();
+                buildMetaBlock();
+              },
+            }),
+            el("span", {}, task.text),
+          ]),
+          metaBlock,
         ])
       );
     });
     updateLevelLabel();
-
-    const AFFINITY_OPTIONS = [
-      { id: "dislike", text: "Not for me" },
-      { id: "neutral", text: "Neutral" },
-      { id: "like", text: "More of this" },
-    ];
-    const affinityRow = el("div", { class: "affinity-row" });
-    const affinityBtns = [];
-    AFFINITY_OPTIONS.forEach((opt) => {
-      const btn = el(
-        "button",
-        {
-          type: "button",
-          class: "affinity-btn" + (state.skillAffinity[skill.id] === opt.id ? " active" : ""),
-          onclick: () => {
-            state.skillAffinity[skill.id] = opt.id;
-            saveState();
-            affinityBtns.forEach((b) => b.el.classList.toggle("active", b.id === opt.id));
-          },
-        },
-        opt.text
-      );
-      affinityBtns.push({ id: opt.id, el: btn });
-      affinityRow.appendChild(btn);
-    });
 
     list.appendChild(
       el("div", { class: "skill-row" }, [
         el("div", { class: "skill-label" }, [el("strong", {}, skill.label), el("span", { class: "muted small" }, skill.desc)]),
         taskList,
         levelLabel,
-        el("div", { class: "affinity-block" }, [
-          el("span", { class: "muted small" }, "Independent of what you've done — do you want more of this kind of work?"),
-          affinityRow,
-        ]),
       ])
     );
   }
@@ -295,25 +344,57 @@ function renderInterests() {
 }
 
 // --------------------------------------------------------- scoring core
-// A single checked task can never alone carry a skill to its level — claiming
-// a high level also requires having checked enough of the list to back it up
-// (checking only the hardest-sounding box, alone, caps out at level 2).
-function skillLevelFor(skill, checkedIdx) {
+// A checked task's level is trusted, but discounted if you said you're still
+// building confidence at it — "I did it once, shakily" shouldn't read the same
+// as "I do this comfortably." Your skill level is the strongest task you can
+// credibly claim, after that discount.
+function competencyAdjustedLevel(task, competency) {
+  if (competency === "learning") return Math.max(1, task.level - 1);
+  return task.level; // comfortable or strong: full credit for the task's level
+}
+
+function skillLevelFor(skill, checkedIdx, taskMeta) {
   if (!checkedIdx.length) return 1;
-  const maxClaimed = Math.max(...checkedIdx.map((i) => skill.tasks[i].level));
-  // A single checked task can still place you anywhere from 1-3 depending on
-  // which one (so an easy vs. a moderately-advanced box still reads differently),
-  // but never alone reaches 4-5 — that requires breadth across multiple tasks.
-  return Math.min(maxClaimed, 2 + checkedIdx.length);
+  const levels = checkedIdx.map((i) => {
+    const meta = (taskMeta && taskMeta[i]) || defaultTaskMeta();
+    return competencyAdjustedLevel(skill.tasks[i], meta.competency);
+  });
+  return Math.max(...levels);
 }
 
 function skillLevels() {
   const out = {};
   for (const skill of SKILLS) {
     const checked = state.skillChecks[skill.id] || [];
-    out[skill.id] = skillLevelFor(skill, checked);
+    const taskMeta = state.taskMeta[skill.id] || {};
+    out[skill.id] = skillLevelFor(skill, checked, taskMeta);
   }
   return out;
+}
+
+// Enjoyment is tracked per checked task, not per skill area (you can have done
+// budgets at a senior level and hated every minute of it). This rolls a skill's
+// checked tasks up into one signal, weighted by task level so disliking the
+// advanced, representative work counts more than disliking the entry-level box.
+function skillEnjoyment(skillId) {
+  const skill = SKILLS.find((s) => s.id === skillId);
+  const checked = state.skillChecks[skillId] || [];
+  const taskMeta = state.taskMeta[skillId] || {};
+  if (!checked.length) return "neutral";
+  let score = 0;
+  let weight = 0;
+  checked.forEach((i) => {
+    const meta = taskMeta[i] || defaultTaskMeta();
+    const w = skill.tasks[i].level;
+    const v = meta.enjoyment === "dislike" ? -1 : meta.enjoyment === "like" ? 1 : 0;
+    score += v * w;
+    weight += w;
+  });
+  if (!weight) return "neutral";
+  const avg = score / weight;
+  if (avg <= -0.34) return "dislike";
+  if (avg >= 0.34) return "like";
+  return "neutral";
 }
 
 // Cert suppression is scoped to the certs that actually appear on THIS track's
@@ -359,7 +440,7 @@ function trackAffinityAdjustment(track) {
   const sum = ids.reduce((s, id) => s + w[id], 0);
   if (!sum) return 0;
   const raw = ids.reduce((s, id) => {
-    const aff = state.skillAffinity[id];
+    const aff = skillEnjoyment(id);
     if (aff === "dislike") return s - w[id];
     if (aff === "like") return s + w[id] * 0.3;
     return s;
@@ -549,7 +630,7 @@ function renderResults() {
 
   // Enjoyment mismatch: skilled/eligible on paper but said they don't want more of it.
   const dislikedRelevant = Object.keys(td.skillWeights).filter(
-    (id) => state.skillAffinity[id] === "dislike" && td.skillWeights[id] >= 0.4
+    (id) => skillEnjoyment(id) === "dislike" && td.skillWeights[id] >= 0.4
   );
   if (dislikedRelevant.length) {
     card.appendChild(
@@ -569,7 +650,7 @@ function renderResults() {
   const rankList = el("div", { class: "rank-list" });
   ranked.forEach((r) => {
     const rd = TRACKS_DATA[r.track];
-    const dislikedHere = Object.keys(rd.skillWeights).filter((id) => state.skillAffinity[id] === "dislike" && rd.skillWeights[id] >= 0.4);
+    const dislikedHere = Object.keys(rd.skillWeights).filter((id) => skillEnjoyment(id) === "dislike" && rd.skillWeights[id] >= 0.4);
     rankList.appendChild(
       el("div", { class: "rank-row" }, [
         el("span", { class: "rank-name" }, [
