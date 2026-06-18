@@ -1,75 +1,65 @@
 // Data model for the Cybersecurity Career Path Finder.
-// Skill categories, scenario-based interest quiz, certifications, and career
-// paths are derived from the role/skill/certification guidance in Dice's
-// "How to Craft Your Cybersecurity Career Roadmap" article and the NICE
-// Workforce Framework / CyberSeek pathway tool it points readers to.
+// Built around the role/skill/certification guidance in Dice's "How to Craft
+// Your Cybersecurity Career Roadmap" article and the NICE Workforce Framework /
+// CyberSeek pathway tool it points readers to.
+//
+// Design notes (v3): instead of mapping people to one of six flat "paths", each
+// track is a LADDER of role rungs (entry -> lead). The tool figures out roughly
+// which rung you're already on (from experience + skills), then points at the
+// NEXT rung and the ones beyond it — so a 10-year roadmap actually progresses
+// instead of repeating your current job title. Certs carry a level so we never
+// recommend something at or below what you already hold.
 
-// How "ready now" you are coming in, used to set realistic Year 1 expectations.
+// How "ready" you are coming in. Drives where on the ladder you currently sit.
 const EXPERIENCE_LEVELS = [
-  {
-    id: "none",
-    label: "No formal IT or security job experience",
-    desc: "Self-taught, coursework, or just getting started",
-    weight: 0,
-  },
-  {
-    id: "it",
-    label: "IT experience, not security-focused",
-    desc: "e.g. help desk, sysadmin, networking — but not a dedicated security role",
-    weight: 1,
-  },
-  {
-    id: "exposure",
-    label: "Some security exposure",
-    desc: "Security tasks inside a broader role, an internship, or junior security work",
-    weight: 2,
-  },
-  {
-    id: "security",
-    label: "Currently working in a dedicated security role",
-    desc: "Security is already your job title or primary responsibility",
-    weight: 3,
-  },
+  { id: "none", label: "No formal IT or security job experience", desc: "Self-taught, coursework, or just getting started", weight: 0, baseRung: 0 },
+  { id: "it", label: "IT experience, not security-focused", desc: "e.g. help desk, sysadmin, networking — but not a dedicated security role", weight: 1, baseRung: 0 },
+  { id: "exposure", label: "Some security exposure", desc: "Security tasks inside a broader role, an internship, or junior security work", weight: 2, baseRung: 1 },
+  { id: "security", label: "Currently working in a dedicated security role", desc: "Security is already your job title or primary responsibility", weight: 3, baseRung: 1 },
 ];
 
-// Master certification list. Career paths reference these by id so that
-// certs the user already holds can be excluded from their roadmap.
+// Master certification list. `level`: 1=entry, 2=associate/hands-on,
+// 3=professional/mid, 4=senior/expert. Recommendations never include a cert
+// whose level is <= the highest level you already hold (so a CISA holder is
+// never told to "go get Security+").
 const CERTIFICATIONS = [
-  { id: "aplus", name: "CompTIA A+" },
-  { id: "netplus", name: "CompTIA Network+" },
-  { id: "secplus", name: "CompTIA Security+" },
-  { id: "cc", name: "(ISC)² Certified in Cybersecurity (CC)" },
-  { id: "gsec", name: "GIAC Security Essentials (GSEC)" },
-  { id: "awscp", name: "AWS Certified Cloud Practitioner" },
-  { id: "az900", name: "Microsoft AZ-900" },
-  { id: "ejpt", name: "eLearnSecurity Junior Penetration Tester (eJPT)" },
-  { id: "cysa", name: "CompTIA CySA+" },
-  { id: "gcih", name: "GIAC Certified Incident Handler (GCIH)" },
-  { id: "ceh", name: "Certified Ethical Hacker (CEH)" },
-  { id: "oscp", name: "OSCP" },
-  { id: "awssec", name: "AWS Certified Security – Specialty" },
-  { id: "az500", name: "Microsoft AZ-500" },
-  { id: "cisa", name: "CISA" },
-  { id: "crisc", name: "CRISC" },
-  { id: "cissp", name: "CISSP" },
-  { id: "gcfa", name: "GIAC Certified Forensic Analyst (GCFA)" },
-  { id: "grem", name: "GIAC Reverse Engineering Malware (GREM)" },
-  { id: "osce3", name: "OSCE3" },
-  { id: "gxpn", name: "GIAC Exploit Researcher (GXPN)" },
-  { id: "ccsp", name: "(ISC)² CCSP" },
-  { id: "cism", name: "CISM" },
-  { id: "gslc", name: "GIAC Strategic Leadership (GSLC)" },
+  { id: "aplus", name: "CompTIA A+", level: 1, blurb: "IT support fundamentals" },
+  { id: "netplus", name: "CompTIA Network+", level: 1, blurb: "core networking" },
+  { id: "secplus", name: "CompTIA Security+", level: 1, blurb: "baseline security knowledge; a common HR/ATS filter" },
+  { id: "cc", name: "(ISC)² Certified in Cybersecurity (CC)", level: 1, blurb: "entry-level security cert" },
+  { id: "gsec", name: "GIAC Security Essentials (GSEC)", level: 2, blurb: "hands-on security essentials" },
+  { id: "awscp", name: "AWS Certified Cloud Practitioner", level: 1, blurb: "AWS cloud fundamentals" },
+  { id: "az900", name: "Microsoft AZ-900", level: 1, blurb: "Azure fundamentals" },
+  { id: "ejpt", name: "eLearnSecurity Junior Penetration Tester (eJPT)", level: 2, blurb: "entry hands-on pentesting" },
+  { id: "cysa", name: "CompTIA CySA+", level: 2, blurb: "analyst / behavioral threat detection" },
+  { id: "gcih", name: "GIAC Certified Incident Handler (GCIH)", level: 3, blurb: "incident handling" },
+  { id: "ceh", name: "Certified Ethical Hacker (CEH)", level: 2, blurb: "broad ethical-hacking overview" },
+  { id: "oscp", name: "OSCP", level: 3, blurb: "hands-on offensive benchmark cert" },
+  { id: "awssec", name: "AWS Certified Security – Specialty", level: 3, blurb: "AWS security depth" },
+  { id: "az500", name: "Microsoft AZ-500", level: 3, blurb: "Azure security engineer" },
+  { id: "cisa", name: "CISA", level: 3, blurb: "IS audit; well respected in GRC" },
+  { id: "crisc", name: "CRISC", level: 3, blurb: "IT risk management" },
+  { id: "cissp", name: "CISSP", level: 4, blurb: "senior security breadth; a management-track staple" },
+  { id: "gcfa", name: "GIAC Certified Forensic Analyst (GCFA)", level: 3, blurb: "digital forensics" },
+  { id: "grem", name: "GIAC Reverse Engineering Malware (GREM)", level: 4, blurb: "malware reverse engineering" },
+  { id: "osce3", name: "OSCE3", level: 4, blurb: "expert-level offensive" },
+  { id: "gxpn", name: "GIAC Exploit Researcher (GXPN)", level: 4, blurb: "exploit development" },
+  { id: "ccsp", name: "(ISC)² CCSP", level: 3, blurb: "cloud security professional" },
+  { id: "cism", name: "CISM", level: 4, blurb: "security management & governance leadership" },
+  { id: "gslc", name: "GIAC Strategic Leadership (GSLC)", level: 4, blurb: "security leadership" },
 ];
 
+function cert(id) {
+  return CERTIFICATIONS.find((c) => c.id === id) || { id, name: id, level: 1, blurb: "" };
+}
 function certName(id) {
-  const c = CERTIFICATIONS.find((c) => c.id === id);
-  return c ? c.name : id;
+  return cert(id).name;
 }
 
-// Skills are assessed by checking off concrete things you've actually done,
-// not by guessing a number on a scale. Your level is inferred from the
-// highest task you can honestly check. Anchors describe what each level
-// means so the inferred result is easy to sanity-check.
+// Skills assessed by checking off concrete things you've actually done. Level is
+// inferred from the highest task you can honestly check. The "leadership" axis is
+// deliberately NON-technical so GRC / management-bound people aren't scored as if
+// hands-on hacking were the only thing that counts.
 const SKILLS = [
   {
     id: "networking",
@@ -77,7 +67,7 @@ const SKILLS = [
     desc: "TCP/IP, firewalls, OS administration",
     anchors: [
       "No experience configuring networks or servers",
-      "Know the concepts (OSI model, IP addressing) but limited hands-on",
+      "Know the concepts but limited hands-on",
       "Set up a home network/lab or applied basic firewall rules",
       "Administer systems or networks regularly and troubleshoot independently",
       "Design network architecture or harden complex environments",
@@ -117,7 +107,7 @@ const SKILLS = [
       "Haven't written a script",
       "Can follow/modify a script someone else wrote",
       "Write small scripts to automate personal tasks",
-      "Regularly script to solve work problems (parsing logs, automating checks)",
+      "Regularly script to solve work problems",
       "Build tools or automation other people rely on",
     ],
     tasks: [
@@ -155,7 +145,7 @@ const SKILLS = [
       "Haven't used a cloud platform",
       "Have a free-tier account and have clicked around",
       "Deployed and configured resources in a cloud account",
-      "Secure cloud environments as part of real work (IAM, networking, posture)",
+      "Secure cloud environments as part of real work",
       "Architect secure cloud infrastructure at scale",
     ],
     tasks: [
@@ -174,11 +164,11 @@ const SKILLS = [
       "Never been part of handling a security incident",
       "Understand the IR lifecycle conceptually",
       "Practiced incident scenarios in a lab or course",
-      "Helped handle a real incident (containment, evidence, timeline)",
-      "Led an incident response or owns the IR process",
+      "Helped handle a real incident",
+      "Led an incident response or own the IR process",
     ],
     tasks: [
-      { text: "I understand the phases of incident response (prep, detect, contain, eradicate, recover)", level: 1 },
+      { text: "I understand the phases of incident response", level: 1 },
       { text: "I've practiced IR scenarios in a lab (Blue Team Labs, LetsDefend, CTF, etc.)", level: 3 },
       { text: "I've helped investigate or document a real security incident", level: 4 },
       { text: "I've performed forensic analysis on a compromised system", level: 4 },
@@ -202,6 +192,25 @@ const SKILLS = [
       { text: "I've contributed to a real risk assessment or audit", level: 4 },
       { text: "I've written or maintained a security policy used by a real team", level: 4 },
       { text: "I own or lead a compliance/risk program", level: 5 },
+    ],
+  },
+  {
+    id: "leadership",
+    label: "Leadership & Program Management",
+    desc: "Risk strategy, stakeholder/board communication, running programs & teams (non-technical)",
+    anchors: [
+      "Haven't led projects or communicated with stakeholders in a work setting",
+      "Have explained technical topics to non-technical people",
+      "Have owned a project or initiative end-to-end",
+      "Have managed a budget, vendor, program, or mentored others formally",
+      "Have led or managed a team — hiring, performance, and strategy",
+    ],
+    tasks: [
+      { text: "I've explained security or technical risk to non-technical stakeholders or execs", level: 2 },
+      { text: "I've owned a project or initiative from start to finish", level: 3 },
+      { text: "I've mentored or coached other people on the job", level: 3 },
+      { text: "I've managed a budget, vendor relationship, or a formal program", level: 4 },
+      { text: "I've led or managed a team (hiring, performance reviews, strategy)", level: 5 },
     ],
   },
   {
@@ -246,8 +255,9 @@ const SKILLS = [
 
 const TRACKS = ["defense", "offense", "cloud", "grc", "leadership"];
 
-// Vague, scenario-style prompts. Pick everything that genuinely appeals —
-// there's no "correct" track per scenario and selections aren't limited to one.
+// Vague scenarios. Pick everything that genuinely appeals — more than one per
+// scenario is expected. Each option maps to a track, but options aren't grouped
+// or labeled by track on screen.
 const SCENARIOS = [
   {
     setup: "Something's gone wrong systemwide and the on-call channel is blowing up. Nobody's fully sure what happened yet.",
@@ -317,119 +327,69 @@ const SCENARIOS = [
   },
 ];
 
-const PATHS = [
-  {
-    id: "soc-analyst",
-    name: "SOC Analyst / Security Operations",
-    summary: "Monitor security tooling, triage alerts, and respond to incidents as the front line of defense.",
-    trackWeights: { defense: 1, offense: 0, cloud: 0, grc: 0.2, leadership: 0 },
-    skillWeights: { networking: 1, siem: 1, scripting: 0.5, ir: 0.5 },
-    certs: {
-      entry: ["secplus", "cc", "gsec"],
-      mid: ["cysa", "gcih"],
-      senior: ["gcfa", "cissp"],
-    },
-    shortTermGoals: [
-      "Earn CompTIA Security+",
-      "Build a home lab with a free SIEM (e.g. Splunk Free, Wazuh) and generate/triage sample alerts",
-      "Attend a local security meetup or join a CTF",
-      "Apply to 3 SOC analyst or junior security roles",
+// Each track is a ladder of rungs (entry -> lead). `skillWeights` drive the
+// aptitude part of fit. `dayInLife` is used to help people choose between two
+// close tracks. Rungs list role titles, the tier, and the certs typically
+// associated with reaching that rung.
+const TRACKS_DATA = {
+  defense: {
+    label: "Defensive Operations (Blue Team)",
+    blurb: "Monitor, detect, hunt, and respond — the front line that keeps attackers out and catches them when they get in.",
+    dayInLife: "Mostly hands-on-keyboard: dashboards, alerts, investigations. Fast-paced and reactive.",
+    skillWeights: { siem: 1, ir: 0.8, networking: 0.6, scripting: 0.5 },
+    rungs: [
+      { tier: 1, title: "SOC Analyst (Tier 1)", certs: ["secplus", "cc", "gsec"] },
+      { tier: 2, title: "SOC Analyst (Tier 2) / Senior Analyst", certs: ["cysa", "gcih"] },
+      { tier: 3, title: "Threat Hunter / Incident Responder / Detection Engineer", certs: ["gcfa", "grem"] },
+      { tier: 4, title: "DFIR Lead / Detection Engineering Lead / SOC Manager", certs: ["cissp", "gslc"] },
     ],
-    longTermGoals: ["Move into threat hunting or incident response", "Earn CISSP as you take on more ownership"],
   },
-  {
-    id: "threat-hunter",
-    name: "Threat Hunter / Incident Responder",
-    summary: "Proactively hunt for hidden threats and lead the investigation when something goes wrong.",
-    trackWeights: { defense: 1, offense: 0.3, cloud: 0, grc: 0, leadership: 0 },
-    skillWeights: { siem: 1, ir: 1, malware: 0.7, networking: 0.5 },
-    certs: {
-      entry: ["secplus", "gsec"],
-      mid: ["gcih", "gcfa", "cysa"],
-      senior: ["grem", "oscp"],
-    },
-    shortTermGoals: [
-      "Earn Security+ or GSEC",
-      "Practice incident scenarios in a home lab (e.g. Blue Team Labs, LetsDefend)",
-      "Join an incident-response or DFIR community",
-      "Apply to 3 IR/threat-hunting or SOC tier-2 roles",
+  offense: {
+    label: "Offensive Security (Red Team)",
+    blurb: "Find and exploit weaknesses before real attackers do, through authorized testing.",
+    dayInLife: "Deep hands-on and adversarial: breaking things, writing up findings. Project-based, often client-facing.",
+    skillWeights: { offense: 1, scripting: 0.7, networking: 0.6, malware: 0.5 },
+    rungs: [
+      { tier: 1, title: "Junior Pentester / AppSec Tester", certs: ["secplus", "ejpt"] },
+      { tier: 2, title: "Penetration Tester", certs: ["oscp", "ceh"] },
+      { tier: 3, title: "Senior Pentester / Red Team Operator", certs: ["osce3"] },
+      { tier: 4, title: "Red Team Lead / Exploit Developer / Researcher", certs: ["gxpn", "grem"] },
     ],
-    longTermGoals: ["Specialize in digital forensics or malware analysis", "Lead an incident response team"],
   },
-  {
-    id: "pentester",
-    name: "Penetration Tester / Red Teamer",
-    summary: "Find and exploit weaknesses before attackers do, through authorized offensive testing.",
-    trackWeights: { offense: 1, defense: 0.2, cloud: 0, grc: 0, leadership: 0 },
-    skillWeights: { offense: 1, scripting: 0.8, networking: 0.7, malware: 0.4 },
-    certs: {
-      entry: ["secplus", "ejpt"],
-      mid: ["oscp", "ceh"],
-      senior: ["osce3", "gxpn"],
-    },
-    shortTermGoals: [
-      "Earn Security+, then start eJPT or PNPT",
-      "Build a home lab and complete boxes on HackTheBox/TryHackMe",
-      "Compete in a CTF",
-      "Apply to 3 junior pentester or red-team roles",
+  cloud: {
+    label: "Cloud Security",
+    blurb: "Secure cloud infrastructure and design resilient, compliant cloud architectures.",
+    dayInLife: "Systems-oriented engineering: IAM, posture, infrastructure-as-code. Building and hardening, less firefighting.",
+    skillWeights: { cloud: 1, networking: 0.5, scripting: 0.5, crypto: 0.4 },
+    rungs: [
+      { tier: 1, title: "Cloud Security Analyst (Associate)", certs: ["secplus", "awscp", "az900"] },
+      { tier: 2, title: "Cloud Security Engineer", certs: ["awssec", "az500"] },
+      { tier: 3, title: "Senior Cloud Security Engineer", certs: ["ccsp"] },
+      { tier: 4, title: "Cloud Security Architect / Staff Engineer", certs: ["cissp"] },
     ],
-    longTermGoals: ["Earn OSCP and specialize (web, cloud, AD, mobile)", "Move into red team lead or exploit development"],
   },
-  {
-    id: "cloud-security",
-    name: "Cloud Security Engineer / Architect",
-    summary: "Secure cloud infrastructure and design resilient, compliant cloud architectures.",
-    trackWeights: { cloud: 1, defense: 0.2, offense: 0, grc: 0, leadership: 0 },
-    skillWeights: { cloud: 1, networking: 0.6, scripting: 0.6, crypto: 0.4 },
-    certs: {
-      entry: ["secplus", "awscp", "az900"],
-      mid: ["awssec", "az500"],
-      senior: ["ccsp", "cissp"],
-    },
-    shortTermGoals: [
-      "Earn Security+ and a cloud-provider foundations cert",
-      "Build and secure a project in a free-tier AWS/Azure/GCP account",
-      "Join a cloud security community or study group",
-      "Apply to 3 cloud security engineer roles",
+  grc: {
+    label: "GRC: Governance, Risk & Compliance",
+    blurb: "Assess risk, run compliance programs, and translate frameworks into action. Strong path for non-technical and audit backgrounds.",
+    dayInLife: "Structured and people-facing: frameworks, policy, audits, stakeholder conversations. Little to no coding.",
+    skillWeights: { grc: 1, leadership: 0.5 },
+    rungs: [
+      { tier: 1, title: "GRC / Risk & Compliance Analyst", certs: ["cc", "secplus"] },
+      { tier: 2, title: "Senior GRC Analyst / IT Auditor", certs: ["cisa", "crisc"] },
+      { tier: 3, title: "Risk / Compliance Manager", certs: ["cism"] },
+      { tier: 4, title: "Director of Risk / GRC", certs: ["cissp"] },
     ],
-    longTermGoals: ["Earn AWS Security Specialty or CCSP", "Move into cloud security architecture"],
   },
-  {
-    id: "grc-analyst",
-    name: "GRC / Risk & Compliance Analyst",
-    summary: "Assess risk, manage compliance programs, and translate frameworks into action.",
-    trackWeights: { grc: 1, leadership: 0.3, defense: 0, offense: 0, cloud: 0 },
-    skillWeights: { grc: 1, crypto: 0.3 },
-    certs: {
-      entry: ["cc", "secplus"],
-      mid: ["cisa", "crisc"],
-      senior: ["cism", "cissp"],
-    },
-    shortTermGoals: [
-      "Earn (ISC)² CC or Security+",
-      "Get hands-on with a framework like NIST 800-53 or ISO 27001 (map controls for a sample org)",
-      "Join a GRC or compliance community",
-      "Apply to 3 risk/compliance analyst roles",
+  leadership: {
+    label: "Security Leadership (Management track)",
+    blurb: "Set strategy, own risk at the organizational level, and lead security teams. Usually built on top of a technical or GRC foundation.",
+    dayInLife: "People and strategy: meetings, hiring, budgets, board communication. Hands-off-keyboard.",
+    skillWeights: { leadership: 1, grc: 0.4, ir: 0.3 },
+    rungs: [
+      { tier: 1, title: "Security Team Lead", certs: [] },
+      { tier: 2, title: "Security Manager", certs: ["cissp"] },
+      { tier: 3, title: "Director of Security", certs: ["cism"] },
+      { tier: 4, title: "CISO / Head of Security", certs: ["gslc"] },
     ],
-    longTermGoals: ["Earn CISA or CRISC", "Move into a CISM-track risk or compliance leadership role"],
   },
-  {
-    id: "security-leadership",
-    name: "Security Leadership (Manager / CISO track)",
-    summary: "Set strategy, own risk at the organizational level, and lead security teams.",
-    trackWeights: { leadership: 1, grc: 0.4, defense: 0, offense: 0, cloud: 0 },
-    skillWeights: { grc: 0.6, ir: 0.4, cloud: 0.3 },
-    certs: {
-      entry: ["secplus"],
-      mid: ["cissp"],
-      senior: ["cism", "gslc"],
-    },
-    shortTermGoals: [
-      "Build deep experience in one technical track first (defense, offense, cloud, or GRC)",
-      "Take on a mentoring or team-lead opportunity",
-      "Start studying for CISSP",
-      "Apply for senior/lead roles that include people or program management",
-    ],
-    longTermGoals: ["Earn CISSP and then CISM", "Move into a security manager, director, or CISO role"],
-  },
-];
+};

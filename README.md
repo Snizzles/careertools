@@ -6,13 +6,15 @@ Built around the framework from Dice's [How to Craft Your Cybersecurity Career R
 
 ## How it works
 
-1. **Tell it where you're starting from**: your current experience level, and which certifications you already hold (so the roadmap never tells you to go earn something you already have).
-2. **Check off what you've actually done** across 9 skill categories (networking, SIEM/log monitoring, scripting, cryptography, cloud, incident response, GRC, offensive security, malware analysis). Each category lists concrete tasks instead of an abstract 1-5 scale — your level is inferred from what you check, with a plain-language description so you can sanity-check the result.
-3. **Answer a few deliberately vague scenario questions** — pick everything that genuinely appeals, not a forced single choice — that map loosely to five career tracks: defense/operations, offense, cloud/architecture, GRC/compliance, and leadership.
-4. **Get a 1–10 year roadmap**, not just a single recommendation:
-   - **Year 1**: roles you're realistically eligible for right now, given your actual skills, certs, and experience.
-   - **Years 2–4**: the certs and goals that bridge you toward your best long-term fit.
-   - **Years 5–10**: the career path — one of six tracks (SOC Analyst, Threat Hunter/IR, Pentester/Red Teamer, Cloud Security Engineer, GRC Analyst, Security Leadership) — that best matches your skills and interests, with its senior-tier certs and long-term direction.
+1. **Tell it where you're starting from**: your current experience level, and which certifications you already hold. The roadmap excludes those certs *and anything beneath them* — hold a senior cert (say CISA) and the entry ones (Security+, CC) drop off automatically, so you're never told to go earn something you've outgrown.
+2. **Check off what you've actually done** across 10 skill areas — including a deliberately **non-technical** leadership/program-management axis, so GRC- and management-bound people aren't scored as if hands-on hacking were the only thing that counts. Each area lists concrete tasks instead of an abstract 1–5 scale; your level is inferred from what you check, with a plain-language description to sanity-check it.
+3. **Answer a few deliberately vague scenario questions** — pick everything that genuinely appeals (a split is fine and is detected) — mapping loosely to five tracks: defensive operations, offensive security, cloud security, GRC, and leadership.
+4. **Get a role-by-role roadmap built on career *ladders*, not a single label.** Each track is a ladder of roles from entry to lead. The tool estimates which rung you're already on and starts from your **next move**, never the job you already have:
+   - **Now**: the role you could credibly claim today (skipped if you're new to security).
+   - **Year 1**: your realistic next role, with a plain-language readiness signal (*ready to apply now* / *close* / *foundation first*) — fit and eligibility are kept separate, so it won't slap "eligible now" on everything.
+   - **Years 2–4 / 5–10**: the rungs beyond, each with the certs that actually matter at that level.
+
+   If your interests are genuinely split between two tracks, it flags the fork and contrasts the day-to-day of each to help you choose. A standing reminder that **proof (labs, projects, writeups, reframed experience) often matters as much as certs** sits alongside every result.
 
 Everything runs in the browser with no backend; your answers are saved to `localStorage` so you can leave and come back.
 
