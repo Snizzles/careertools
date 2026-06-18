@@ -101,7 +101,7 @@ body {
 .skill-list {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 0;
   margin: 20px 0;
 }
 
@@ -109,21 +109,61 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 6px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.skill-row:last-child {
+  border-bottom: none;
 }
 
 .skill-label {
   display: flex;
   flex-direction: column;
-}
-
-.skill-row input[type="range"] {
-  width: 100%;
-  accent-color: var(--accent);
+  margin-bottom: 4px;
 }
 
 .skill-value {
   font-size: 0.85rem;
   color: var(--accent-2);
+  margin: 6px 0 0;
+}
+
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 12px 0 24px;
+}
+
+.cert-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px 16px;
+  margin: 12px 0 24px;
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.roadmap-stage {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin: 12px 0 20px;
+}
+
+.roadmap-stage h4 {
+  margin: 0 0 4px;
+  color: var(--accent-2);
+}
+
+.roadmap-stage p {
+  margin: 6px 0;
 }
 
 .question {
@@ -242,4 +282,5 @@ body {
   .cert-roadmap { grid-template-columns: 1fr; }
   .rank-row { grid-template-columns: 1fr; }
   .rank-pct { text-align: left; }
+  .cert-checklist { grid-template-columns: 1fr; }
 }

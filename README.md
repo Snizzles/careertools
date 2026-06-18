@@ -6,9 +6,13 @@ Built around the framework from Dice's [How to Craft Your Cybersecurity Career R
 
 ## How it works
 
-1. **Rate your current skills** across 9 categories (networking, SIEM/log monitoring, scripting, cryptography, cloud, incident response, GRC, offensive security, malware analysis).
-2. **Take a short interest quiz** (6 questions) that maps your answers to five career tracks: defense/operations, offense, cloud/architecture, GRC/compliance, and leadership.
-3. **Get a recommended path** — one of six cybersecurity career tracks (SOC Analyst, Threat Hunter/IR, Pentester/Red Teamer, Cloud Security Engineer, GRC Analyst, Security Leadership) — ranked by how well it matches both your current skills and your interests, with a 3-tier certification roadmap (entry/mid/senior) and concrete short- and long-term goals.
+1. **Tell it where you're starting from**: your current experience level, and which certifications you already hold (so the roadmap never tells you to go earn something you already have).
+2. **Check off what you've actually done** across 9 skill categories (networking, SIEM/log monitoring, scripting, cryptography, cloud, incident response, GRC, offensive security, malware analysis). Each category lists concrete tasks instead of an abstract 1-5 scale — your level is inferred from what you check, with a plain-language description so you can sanity-check the result.
+3. **Answer a few deliberately vague scenario questions** — pick everything that genuinely appeals, not a forced single choice — that map loosely to five career tracks: defense/operations, offense, cloud/architecture, GRC/compliance, and leadership.
+4. **Get a 1–10 year roadmap**, not just a single recommendation:
+   - **Year 1**: roles you're realistically eligible for right now, given your actual skills, certs, and experience.
+   - **Years 2–4**: the certs and goals that bridge you toward your best long-term fit.
+   - **Years 5–10**: the career path — one of six tracks (SOC Analyst, Threat Hunter/IR, Pentester/Red Teamer, Cloud Security Engineer, GRC Analyst, Security Leadership) — that best matches your skills and interests, with its senior-tier certs and long-term direction.
 
 Everything runs in the browser with no backend; your answers are saved to `localStorage` so you can leave and come back.
 
