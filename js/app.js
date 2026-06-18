@@ -539,6 +539,21 @@ function renderResults() {
     );
   }
 
+  // Certs held that ARE part of this ladder, at or above a given rung's level —
+  // this is why a rung can show zero certs to target. Without this, "no certs
+  // recommended" reads as a silent omission instead of "you already outrank this."
+  const heldInTrack = state.certs.filter((id) => trackCertPool.has(id));
+  if (heldInTrack.length) {
+    const heldLevel = Math.max(...heldInTrack.map((id) => cert(id).level));
+    card.appendChild(
+      el(
+        "p",
+        { class: "muted small" },
+        `You already hold ${heldInTrack.map(certName).join(", ")} on this ladder (level ${heldLevel}) — that's why rungs at or below that level don't list further certs to chase. Proof of work matters more from here.`
+      )
+    );
+  }
+
   // Fork detection: interests genuinely split toward a different track. Based on
   // what they're DRAWN to (interest), not blended fit — that's what "I'm torn"
   // actually means. The primary ladder still follows overall fit.
@@ -685,9 +700,17 @@ function copyResults(ranked) {
   const seniorIdx = rungs.length - 1;
   const current = top.currentRungIdx >= 0 ? rungs[top.currentRungIdx] : null;
 
+  const trackCertPool = new Set();
+  rungs.forEach((r) => r.certs.forEach((id) => trackCertPool.add(id)));
+  const heldInTrack = state.certs.filter((id) => trackCertPool.has(id));
+
   const line = (when, rung) => {
     const recs = recommendCerts(rung.certs, top.track).map(certName);
-    return `${when}: ${rung.title}${recs.length ? ` — certs: ${recs.join(", ")}` : ""}`;
+    const held = rung.certs.filter((c) => state.certs.includes(c));
+    if (recs.length) return `${when}: ${rung.title} — certs: ${recs.join(", ")}`;
+    if (held.length) return `${when}: ${rung.title} — already covered: ${held.map(certName).join(", ")}`;
+    if (heldInTrack.length) return `${when}: ${rung.title} — no further certs (already covered by ${heldInTrack.map(certName).join(", ")})`;
+    return `${when}: ${rung.title} — no cert needed here, proof of work matters more`;
   };
 
   const out = [
